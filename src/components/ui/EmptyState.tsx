@@ -6,14 +6,29 @@ interface EmptyStateProps {
   title: string;
   description?: ReactNode;
   action?: ReactNode;
+  /**
+   * Riduce i margini interni, per gli spazi vuoti dentro card strette.
+   * È una prop e non una classe perché sovrascrivere `px-6 py-10` dall'esterno
+   * non funzionerebbe: fra due utility di padding Tailwind vince quella che
+   * compare più tardi nel CSS generato, non quella passata per ultima.
+   */
+  compact?: boolean;
   className?: string;
 }
 
-export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+  compact = false,
+  className,
+}: EmptyStateProps) {
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 px-6 py-10 text-center',
+        'flex flex-col items-center justify-center gap-3 text-center',
+        compact ? 'px-0 py-6' : 'px-6 py-10',
         className,
       )}
     >

@@ -1,23 +1,39 @@
 import { Flame, Percent, Puzzle, Swords, Target, TrendingUp } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { RecentGames } from '@/components/home/RecentGames';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
-import { Heatmap, HeatmapLegend } from '@/components/ui/Heatmap';
+import {
+  HEATMAP_HEIGHT_PX,
+  Heatmap,
+  HeatmapLegend,
+  heatmapContentWidth,
+} from '@/components/ui/Heatmap';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StatTile } from '@/components/ui/StatTile';
 import { useAuth } from '@/lib/auth/store';
 import { pickGreeting } from '@/lib/greetings';
 import {
+  HEATMAP_WEEKS,
   useGameStats,
   usePuzzleActivity,
   usePuzzleStats,
   useRecentGames,
 } from '@/lib/hooks/useActivity';
 import { humanMessage } from '@/lib/lichess/errors';
+
+/** Padding orizzontale della Card (`p-5`), su entrambi i lati. */
+const CARD_PADDING_X = 20;
+
+/**
+ * Larghezza della colonna delle heatmap, derivata dalla geometria reale della
+ * griglia. Se cambia il numero di settimane o la dimensione delle celle, la
+ * colonna si adatta da sola: nessun numero magico da tenere sincronizzato.
+ */
+const HEATMAP_COL_PX = heatmapContentWidth(HEATMAP_WEEKS) + CARD_PADDING_X * 2;
 
 export function HomePage() {
   const status = useAuth((state) => state.status);
@@ -110,99 +126,118 @@ export function HomePage() {
         )}
       </Card>
 
-      {/* Heatmap partite */}
-      <Card>
-        <CardHeader
-          title="Attività di gioco"
-          subtitle={
-            gameStats
-              ? `${gameStats.calendar.totalCount} partite · ${gameStats.calendar.streak.activeDays} giorni attivi`
-              : 'Ultimi mesi'
-          }
-          action={<HeatmapLegend className="hidden sm:flex" />}
-        />
-        {gamesQuery.isPending ? (
-          <Skeleton className="h-[118px] w-full" />
-        ) : gamesQuery.isError ? (
-          <ErrorState
-            message={humanMessage(gamesQuery.error)}
-            onRetry={() => void gamesQuery.refetch()}
-          />
-        ) : gameStats ? (
-          <Heatmap calendar={gameStats.calendar} unit={{ one: 'partita', many: 'partite' }} />
-        ) : null}
-      </Card>
+      {/* Due colonne: le heatmap a sinistra occupano esattamente la larghezza
+          del loro contenuto, e lo spazio che avanza va alla lista partite
+          invece di restare vuoto. */}
+      <div
+        className="grid gap-5 lg:grid-cols-[var(--heatmap-col)_minmax(0,1fr)]"
+        style={{ '--heatmap-col': `${HEATMAP_COL_PX}px` } as CSSProperties}
+      >
+        <div className="min-w-0 space-y-5">
+          {/* Heatmap partite */}
+          <Card>
+            <CardHeader
+              title="Attività di gioco"
+              subtitle={
+                gameStats
+                  ? `${gameStats.calendar.totalCount} partite · ${gameStats.calendar.streak.activeDays} giorni attivi`
+                  : 'Ultimi mesi'
+              }
+            />
+            {gamesQuery.isPending ? (
+              <Skeleton className="w-full" style={{ height: `${HEATMAP_HEIGHT_PX}px` }} />
+            ) : gamesQuery.isError ? (
+              <ErrorState
+                message={humanMessage(gamesQuery.error)}
+                onRetry={() => void gamesQuery.refetch()}
+              />
+            ) : gameStats ? (
+              <>
+                <Heatmap calendar={gameStats.calendar} unit={{ one: 'partita', many: 'partite' }} />
+                <HeatmapLegend className="mt-3 justify-end" />
+              </>
+            ) : null}
+          </Card>
 
-      {/* Heatmap puzzle */}
-      <Card>
-        <CardHeader
-          title="Attività puzzle"
-          subtitle={
-            puzzleStats
-              ? `${puzzleStats.total} puzzle · ${puzzleStats.accuracy}% risolti · media ${puzzleStats.averageRating}`
-              : 'Ultimi mesi'
-          }
-          action={
-            <Link
-              to="/puzzle"
-              className="text-[13px] font-medium text-brand-400 hover:text-brand-300"
-            >
-              Allenati
-            </Link>
-          }
-        />
-        {puzzlesQuery.isPending ? (
-          <Skeleton className="h-[118px] w-full" />
-        ) : puzzlesQuery.isError ? (
-          <ErrorState
-            message={humanMessage(puzzlesQuery.error)}
-            onRetry={() => void puzzlesQuery.refetch()}
-          />
-        ) : puzzleStats && puzzleStats.total > 0 ? (
-          <Heatmap calendar={puzzleStats.calendar} unit={{ one: 'puzzle', many: 'puzzle' }} />
-        ) : (
-          <EmptyState
-            icon={<Puzzle className="size-5" />}
-            title="Nessun puzzle risolto"
-            description="Risolvi il tuo primo puzzle e questa griglia inizierà a riempirsi."
+          {/* Heatmap puzzle */}
+          <Card>
+            <CardHeader
+              title="Attività puzzle"
+              subtitle={
+                puzzleStats && puzzleStats.total > 0
+                  ? `${puzzleStats.total} puzzle · ${puzzleStats.accuracy}% risolti`
+                  : 'Ultimi mesi'
+              }
+              action={
+                <Link
+                  to="/puzzle"
+                  className="text-[13px] font-medium text-brand-400 hover:text-brand-300"
+                >
+                  Allenati
+                </Link>
+              }
+            />
+            {puzzlesQuery.isPending ? (
+              <Skeleton className="w-full" style={{ height: `${HEATMAP_HEIGHT_PX}px` }} />
+            ) : puzzlesQuery.isError ? (
+              <ErrorState
+                message={humanMessage(puzzlesQuery.error)}
+                onRetry={() => void puzzlesQuery.refetch()}
+              />
+            ) : puzzleStats && puzzleStats.total > 0 ? (
+              <>
+                <Heatmap calendar={puzzleStats.calendar} unit={{ one: 'puzzle', many: 'puzzle' }} />
+                <p className="mt-3 text-right text-[12px] text-muted">
+                  rating medio <span className="tnum">{puzzleStats.averageRating}</span>
+                </p>
+              </>
+            ) : (
+              <EmptyState
+                compact
+                icon={<Puzzle className="size-5" />}
+                title="Nessun puzzle risolto"
+                description="Risolvi il primo e la griglia inizierà a riempirsi."
+                action={
+                  <Link to="/puzzle">
+                    <Button size="sm" variant="secondary">
+                      Vai ai puzzle
+                    </Button>
+                  </Link>
+                }
+              />
+            )}
+          </Card>
+        </div>
+
+        {/* Ultime partite: prende tutta l'altezza per allinearsi alla colonna
+            di sinistra invece di lasciare un gradino. */}
+        <Card className="lg:h-full">
+          <CardHeader
+            title="Ultime partite"
+            subtitle="Le tue 5 partite più recenti"
             action={
-              <Link to="/puzzle">
-                <Button size="sm" variant="secondary">
-                  Vai ai puzzle
-                </Button>
+              <Link
+                to="/archivio"
+                className="text-[13px] font-medium text-brand-400 hover:text-brand-300"
+              >
+                Archivio
               </Link>
             }
           />
-        )}
-      </Card>
-
-      {/* Ultime partite */}
-      <Card>
-        <CardHeader
-          title="Ultime partite"
-          subtitle="Le tue 5 partite più recenti"
-          action={
-            <Link
-              to="/archivio"
-              className="text-[13px] font-medium text-brand-400 hover:text-brand-300"
-            >
-              Archivio
-            </Link>
-          }
-        />
-        {gamesQuery.isError ? (
-          <ErrorState
-            message={humanMessage(gamesQuery.error)}
-            onRetry={() => void gamesQuery.refetch()}
-          />
-        ) : (
-          <RecentGames
-            games={gameStats?.recent ?? []}
-            userId={user?.id ?? ''}
-            loading={gamesQuery.isPending}
-          />
-        )}
-      </Card>
+          {gamesQuery.isError ? (
+            <ErrorState
+              message={humanMessage(gamesQuery.error)}
+              onRetry={() => void gamesQuery.refetch()}
+            />
+          ) : (
+            <RecentGames
+              games={gameStats?.recent ?? []}
+              userId={user?.id ?? ''}
+              loading={gamesQuery.isPending}
+            />
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
