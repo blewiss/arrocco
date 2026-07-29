@@ -1,0 +1,35 @@
+[package]
+name = "arrocco"
+version = "1.0.0"
+description = "Client moderno per Lichess"
+edition = "2021"
+rust-version = "1.77.2"
+license = "GPL-3.0-or-later"
+
+[lib]
+# Il nome della libreria è richiesto dal template Tauri v2: il binario è un
+# guscio sottile che delega a `run()` in lib.rs.
+name = "arrocco_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+# Apre la pagina di consenso OAuth nel browser di sistema e riceve il codice
+# di ritorno tramite lo schema `arrocco://`.
+tauri-plugin-deep-link = "2"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Impedisce che l'apertura di un deep link avvii una seconda istanza: il link
+# viene invece consegnato alla finestra già aperta.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

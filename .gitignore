@@ -1,0 +1,29 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor e tooling
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+
+# Permessi locali di Claude Code: specifici della macchina.
+# `.claude/launch.json` è invece versionato, perché descrive come avviare l'app.
+.claude/settings.local.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Cache degli strumenti
+.vite/
+*.tsbuildinfo

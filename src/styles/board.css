@@ -1,0 +1,142 @@
+/* Layout e pezzi vengono da Chessground; il tema cromatico è di Arrocco.
+   Entrambi i file importati incorporano gli SVG in base64, quindi la
+   scacchiera non dipende da nessun asset esterno (utile per Tauri e per
+   il self-hosting su sottocartelle arbitrarie). */
+@import 'chessground/assets/chessground.base.css';
+@import 'chessground/assets/chessground.cburnett.css';
+
+:root {
+  --sq-light: #ece7f6;
+  --sq-dark: #8672ad;
+  --sq-coord-on-light: rgb(78 68 99 / 0.85);
+  --sq-coord-on-dark: rgb(238 234 247 / 0.9);
+}
+
+.dark {
+  --sq-light: #d9d2ea;
+  --sq-dark: #6d5a91;
+  --sq-coord-on-light: rgb(58 49 76 / 0.85);
+  --sq-coord-on-dark: rgb(233 228 245 / 0.9);
+}
+
+/* Scacchiera generata con una conic-gradient: ogni tile 25%×25% contiene 2×2
+   caselle, e i quattro quadranti danno il pattern alternato. Niente immagini,
+   e i colori seguono il tema attivo. */
+cg-board {
+  background-color: var(--sq-light);
+  background-image: conic-gradient(
+    var(--sq-dark) 0deg 90deg,
+    transparent 90deg 180deg,
+    var(--sq-dark) 180deg 270deg,
+    transparent 270deg 360deg
+  );
+  background-size: 25% 25%;
+}
+
+/* ── Evidenziazioni, in viola di brand ──────────────────────────────────── */
+cg-board square.move-dest {
+  background: radial-gradient(
+    circle,
+    rgb(141 87 235 / 0.55) 20%,
+    rgb(141 87 235 / 0.55) 21%,
+    transparent 22%
+  );
+}
+cg-board square.move-dest:hover {
+  background: rgb(141 87 235 / 0.32);
+}
+/* Casella occupata raggiungibile: anello esterno invece del pallino */
+cg-board square.oc.move-dest {
+  background: radial-gradient(
+    circle,
+    transparent 0%,
+    transparent 78%,
+    rgb(141 87 235 / 0.5) 79%
+  );
+}
+cg-board square.oc.move-dest:hover {
+  background: rgb(141 87 235 / 0.28);
+}
+
+cg-board square.premove-dest {
+  background: radial-gradient(
+    circle,
+    rgb(96 165 250 / 0.5) 20%,
+    rgb(96 165 250 / 0.5) 21%,
+    transparent 22%
+  );
+}
+cg-board square.oc.premove-dest {
+  background: radial-gradient(circle, transparent 0%, transparent 78%, rgb(96 165 250 / 0.45) 79%);
+}
+cg-board square.current-premove {
+  background-color: rgb(96 165 250 / 0.42);
+}
+
+cg-board square.last-move {
+  background-color: rgb(196 158 255 / 0.42);
+}
+cg-board square.selected {
+  background-color: rgb(141 87 235 / 0.45);
+}
+cg-board square.check {
+  background: radial-gradient(
+    ellipse at center,
+    rgb(242 96 107 / 1) 0%,
+    rgb(226 74 86 / 0.9) 26%,
+    rgb(200 40 55 / 0) 88%
+  );
+}
+
+/* ── Coordinate alternate leggibili su entrambi i colori di casella ─────── */
+.orientation-white .ranks :nth-child(odd),
+.orientation-white .files :nth-child(even),
+.orientation-black .ranks :nth-child(even),
+.orientation-black .files :nth-child(odd),
+coords.squares:nth-of-type(odd) :nth-child(even),
+coords.squares:nth-of-type(even) :nth-child(odd) {
+  color: var(--sq-coord-on-light);
+}
+
+.orientation-white .ranks :nth-child(even),
+.orientation-white .files :nth-child(odd),
+.orientation-black .ranks :nth-child(odd),
+.orientation-black .files :nth-child(even),
+coords.squares:nth-of-type(odd) :nth-child(odd),
+coords.squares:nth-of-type(even) :nth-child(even) {
+  color: var(--sq-coord-on-dark);
+}
+
+coords {
+  font-size: clamp(7px, 1.5cqw, 11px);
+  font-weight: 600;
+}
+
+/* ── Contenitore ───────────────────────────────────────────────────────────
+   Chessground richiede un wrapper quadrato. `container-type: inline-size`
+   abilita le unità cqw usate sopra per le coordinate. */
+.arrocco-board {
+  aspect-ratio: 1;
+  width: 100%;
+  container-type: inline-size;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow-raised);
+}
+
+.arrocco-board .cg-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+/* Feedback puzzle: alone verde/rosso attorno alla scacchiera */
+.arrocco-board[data-feedback='win'] {
+  box-shadow:
+    0 0 0 3px var(--color-win),
+    var(--shadow-raised);
+}
+.arrocco-board[data-feedback='fail'] {
+  box-shadow:
+    0 0 0 3px var(--color-loss),
+    var(--shadow-raised);
+}

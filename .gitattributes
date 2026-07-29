@@ -1,0 +1,11 @@
+# Normalizza le fini di riga a LF nel repository, qualunque sia la piattaforma
+# di sviluppo. Evita diff spuri fra collaboratori su Windows e su Unix.
+* text=auto eol=lf
+
+# File che non vanno mai normalizzati
+*.png binary
+*.ico binary
+*.icns binary
+
+# Lockfile: diff enormi e senza valore in review
+package-lock.json -diff linguist-generated

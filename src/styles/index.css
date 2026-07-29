@@ -1,0 +1,218 @@
+@import 'tailwindcss';
+
+/* Arrocco usa una classe .dark su <html> invece della media query, così il
+   tema resta controllabile dall'utente e persistibile. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ── Viola Arrocco, scala derivata da #8d57eb ─────────────────────────── */
+  --color-brand-50: #f5f1fe;
+  --color-brand-100: #ece4fd;
+  --color-brand-200: #dbcefb;
+  --color-brand-300: #c2a9f7;
+  --color-brand-400: #a67ef1;
+  --color-brand-500: #8d57eb;
+  --color-brand-600: #7c3fe0;
+  --color-brand-700: #6b2fc7;
+  --color-brand-800: #5a29a3;
+  --color-brand-900: #4b2483;
+  --color-brand-950: #2e1259;
+
+  /* ── Neutri, leggermente virati sul viola per coerenza col brand ──────── */
+  --color-ink-50: #f8f7fb;
+  --color-ink-100: #f1eff6;
+  --color-ink-200: #e5e1ed;
+  --color-ink-300: #cbc5d9;
+  --color-ink-400: #9d97ad;
+  --color-ink-500: #726c84;
+  --color-ink-600: #56506a;
+  --color-ink-700: #3d3752;
+  --color-ink-800: #2a2438;
+  --color-ink-900: #1e1a29;
+  --color-ink-950: #16131f;
+  --color-ink-1000: #0d0b14;
+
+  /* ── Semantici per esiti di partita ──────────────────────────────────── */
+  --color-win: #3ecf8e;
+  --color-loss: #f2606b;
+  --color-draw: #9d97ad;
+
+  --font-sans:
+    'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Menlo, monospace;
+
+  --radius-card: 14px;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Token semantici di superficie ─────────────────────────────────────────
+   Definiti come variabili CSS (non @theme) perché cambiano valore tra i temi.
+   I componenti li usano via bg-(--surface) ecc., così un solo punto di verità
+   governa light e dark. */
+:root {
+  --page: #fbfafd;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f4f2f8;
+  --border-subtle: #e8e5ef;
+  --border-strong: #d6d1e2;
+  --text-primary: #1a1626;
+  --text-secondary: #56506a;
+  --text-muted: #8b8499;
+  --shadow-card: 0 1px 2px rgb(26 22 38 / 0.04), 0 4px 12px rgb(26 22 38 / 0.04);
+  --shadow-raised: 0 2px 4px rgb(26 22 38 / 0.06), 0 12px 32px rgb(26 22 38 / 0.08);
+  --heat-empty: #eae7f1;
+
+  color-scheme: light;
+}
+
+.dark {
+  --page: #0d0b14;
+  --surface: #16131f;
+  --surface-raised: #1e1a29;
+  --surface-sunken: #110e1a;
+  --border-subtle: #262032;
+  --border-strong: #342c45;
+  --text-primary: #ece9f2;
+  --text-secondary: #a9a3b8;
+  --text-muted: #79738a;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.2);
+  --shadow-raised: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.35);
+  --heat-empty: #201b2c;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: var(--page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Il wrapper Tauri non deve permettere la selezione accidentale della UI,
+     ma il testo dei contenuti resta selezionabile (vedi .selectable). */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-brand-500) 32%, transparent);
+  }
+
+  /* Scrollbar discreta e coerente col tema */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-400);
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .surface {
+    background-color: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
+  }
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+
+  /* Numeri tabulari: indispensabile per orologi e rating che non devono
+     "ballare" mentre cambiano. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .selectable {
+    user-select: text;
+  }
+
+  /* Gradiente di brand riusato su titoli e accenti */
+  .brand-gradient-text {
+    background-image: linear-gradient(
+      100deg,
+      var(--color-brand-400) 0%,
+      var(--color-brand-500) 45%,
+      #d98ef5 100%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .animate-in {
+    animation: arrocco-in 0.45s var(--ease-out-quint) both;
+  }
+}
+
+@keyframes arrocco-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes arrocco-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

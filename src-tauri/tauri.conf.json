@@ -1,0 +1,57 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "productName": "Arrocco",
+  "version": "1.0.0",
+  "identifier": "app.arrocco.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Arrocco",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 720,
+        "minHeight": 600,
+        "resizable": true,
+        "center": true,
+        "theme": null
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "img-src": "'self' data: asset: http://asset.localhost",
+        "style-src": "'self' 'unsafe-inline'",
+        "font-src": "'self' data:",
+        "connect-src": "'self' https://lichess.org ipc: http://ipc.localhost"
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["arrocco"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "Client moderno per Lichess",
+    "longDescription": "Arrocco è un client desktop per Lichess: gioca, allenati con i puzzle e segui i tuoi progressi.",
+    "category": "Game",
+    "copyright": "Arrocco — GPL-3.0-or-later"
+  }
+}
