@@ -14,6 +14,7 @@ import { exportGames } from '@/lib/lichess/api';
 import { LICHESS_ORIGIN } from '@/lib/lichess/config';
 import { humanMessage } from '@/lib/lichess/errors';
 import type { ExportedGame } from '@/lib/lichess/types';
+import { gameQueryKeys } from '@/lib/queryKeys';
 import {
   colorOf,
   opponentLabel,
@@ -46,7 +47,7 @@ export function ArchivePage() {
    * non ricevere di nuovo quella stessa partita.
    */
   const query = useInfiniteQuery({
-    queryKey: ['games', 'archive', user?.username],
+    queryKey: gameQueryKeys.archive(user?.username),
     enabled: status === 'authenticated' && Boolean(user?.username),
     initialPageParam: undefined as number | undefined,
     queryFn: ({ pageParam, signal }) =>

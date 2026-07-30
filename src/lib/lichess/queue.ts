@@ -35,14 +35,17 @@ class Semaphore {
       this.active += 1;
       return;
     }
+    // Lo slot viene passato di mano da `release`, che lo tiene occupato per
+    // conto nostro: incrementarlo qui, al risveglio, lo lascerebbe libero per
+    // un microtask, e una richiesta arrivata in quella finestra scavalcherebbe
+    // la coda facendo salire la concorrenza reale sopra il limite.
     await new Promise<void>((resolve) => this.waiting.push({ resolve }));
-    this.active += 1;
   }
 
   release(): void {
-    this.active -= 1;
     const next = this.waiting.shift();
     if (next) next.resolve();
+    else this.active -= 1;
   }
 }
 

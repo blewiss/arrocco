@@ -1,5 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
 import type { Chess } from 'chess.js';
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { gameQueryKeys } from '../queryKeys';
 import { openGameStream, playMove } from '../lichess/api';
 import { humanMessage } from '../lichess/errors';
 import type {
@@ -126,6 +128,7 @@ export interface LiveGame {
 export function useLiveGame(gameId: string | undefined, myUserId: string | undefined): LiveGame {
   const [store, dispatch] = useReducer(reducer, INITIAL);
   const [revision, setRevision] = useState(0);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!gameId) return;
@@ -179,6 +182,17 @@ export function useLiveGame(gameId: string | undefined, myUserId: string | undef
 
   const finished = isFinished(store.state);
   const myTurn = !finished && myColor !== null && position.turn === myColor;
+
+  // Appena la partita si chiude, lo storico su Lichess è cambiato: senza
+  // questa invalidazione home, heatmap e archivio continuerebbero a mostrare
+  // la copia in cache — cioè la situazione *prima* della partita appena
+  // giocata — finché non scade lo staleTime. Vale anche per l'elenco delle
+  // partite in corso, da cui questa è appena uscita.
+  useEffect(() => {
+    if (!finished) return;
+    void queryClient.invalidateQueries({ queryKey: gameQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: gameQueryKeys.playing });
+  }, [finished, queryClient]);
 
   const sendMove = useCallback(
     async (uci: string) => {

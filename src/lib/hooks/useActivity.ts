@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useAuth } from '../auth/store';
 import { exportGames, fetchPuzzleActivity } from '../lichess/api';
+import { gameQueryKeys, puzzleQueryKeys } from '../queryKeys';
 import type { ExportedGame, PuzzleActivityEntry } from '../lichess/types';
 import { buildActivityCalendar, countByDay } from '../stats/activity';
 import { summarizeWinRate } from '../stats/games';
@@ -38,7 +39,7 @@ export function useRecentGames() {
   const authenticated = useAuth((state) => state.status === 'authenticated');
 
   return useQuery({
-    queryKey: ['games', 'recent', username],
+    queryKey: gameQueryKeys.recent(username),
     enabled: authenticated && Boolean(username),
     queryFn: ({ signal }) =>
       exportGames({
@@ -52,6 +53,11 @@ export function useRecentGames() {
     // Lo storico partite cambia solo quando si gioca: vale la pena tenerlo
     // fresco più a lungo del default.
     staleTime: 3 * 60_000,
+    // Una partita giocata su lichess.org (o su un altro dispositivo) non passa
+    // da qui: tornare sulla finestra è l'unico segnale che abbiamo che possa
+    // esserci qualcosa di nuovo. Lo staleTime evita che diventi una richiesta
+    // a ogni cambio di scheda.
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -60,10 +66,11 @@ export function usePuzzleActivity() {
   const userId = useAuth((state) => state.user?.id);
 
   return useQuery({
-    queryKey: ['puzzles', 'activity', userId],
+    queryKey: puzzleQueryKeys.activity(userId),
     enabled: authenticated,
     queryFn: ({ signal }) => fetchPuzzleActivity(MAX_PUZZLES, signal),
     staleTime: 3 * 60_000,
+    refetchOnWindowFocus: true,
   });
 }
 

@@ -41,12 +41,39 @@ export interface ExportGamesParams {
 }
 
 /**
+ * Coda che serializza gli export dal primo byte all'ultima riga letta.
+ *
+ * La corsia `serial` del limiter da sola non basta: rilascia lo slot appena
+ * arrivano gli header, mentre per Lichess la richiesta è plausibilmente ancora
+ * in corso finché non ha finito di inviare il corpo — e con centinaia di
+ * partite lo streaming ndjson dura secondi. Due export ravvicinati (la home e
+ * l'archivio, o un refetch mentre il primo sta ancora scaricando) rischiano
+ * quindi di sovrapporsi lato server e far scattare il 429 "Please only run
+ * 1 request(s) at a time", con la penalità prolungata che ne segue: da lì in
+ * poi *solo* lo storico partite smette di aggiornarsi, perché è l'unico a
+ * passare da questo endpoint. Accodare fino all'ultima riga letta costa poco
+ * e toglie di mezzo l'ipotesi.
+ */
+let exportChain: Promise<unknown> = Promise.resolve();
+
+/**
  * Export delle partite di un utente.
  *
- * Usa la corsia `serial` del limiter: questo endpoint rifiuta con 429 due
- * richieste sovrapposte, ed è il vincolo più stretto di tutta l'API.
+ * Usa la corsia `serial` del limiter ed è ulteriormente accodato: questo
+ * endpoint rifiuta con 429 due richieste sovrapposte, ed è il vincolo più
+ * stretto di tutta l'API.
  */
-export async function exportGames({
+export function exportGames(params: ExportGamesParams): Promise<ExportedGame[]> {
+  // `catch` sul predecessore: un export fallito non deve bloccare i successivi.
+  const result = exportChain.then(
+    () => runExport(params),
+    () => runExport(params),
+  );
+  exportChain = result.catch(() => {});
+  return result;
+}
+
+async function runExport({
   username,
   max,
   since,
@@ -55,6 +82,9 @@ export async function exportGames({
   withOpening = true,
   signal,
 }: ExportGamesParams): Promise<ExportedGame[]> {
+  // Chi ha annullato mentre era in coda non deve occupare il turno.
+  signal?.throwIfAborted();
+
   const query = new URLSearchParams();
   if (max !== undefined) query.set('max', String(max));
   if (since !== undefined) query.set('since', String(since));

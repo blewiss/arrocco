@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bot, Clock3, LogIn, Play, Users, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn';
 import { createAiGame, fetchNowPlaying } from '@/lib/lichess/api';
 import { humanMessage } from '@/lib/lichess/errors';
 import { useSeek } from '@/lib/hooks/useSeek';
+import { gameQueryKeys } from '@/lib/queryKeys';
 import { StorageKeys, readJson, writeJson } from '@/lib/storage';
 
 /** Controlli di tempo offerti. `limit` in secondi, `increment` in secondi. */
@@ -55,14 +56,25 @@ export function PlayPage() {
     });
   }, []);
 
-  const seek = useSeek(useCallback((gameId) => navigate(`/partita/${gameId}`), [navigate]));
+  const queryClient = useQueryClient();
+
+  const seek = useSeek(
+    useCallback(
+      (gameId) => {
+        void queryClient.invalidateQueries({ queryKey: gameQueryKeys.playing });
+        navigate(`/partita/${gameId}`);
+      },
+      [navigate, queryClient],
+    ),
+  );
 
   const ongoing = useQuery({
-    queryKey: ['account', 'playing'],
+    queryKey: gameQueryKeys.playing,
     enabled: status === 'authenticated',
     queryFn: ({ signal }) => fetchNowPlaying(signal),
     // Le partite in corso vanno mostrate aggiornate: finestra breve.
     staleTime: 15_000,
+    refetchOnWindowFocus: true,
   });
 
   const timeControl = TIME_CONTROLS[prefs.timeIndex] ?? TIME_CONTROLS[3];
@@ -77,6 +89,7 @@ export function PlayPage() {
         clockIncrementSeconds: timeControl.increment,
         color: prefs.color,
       });
+      void queryClient.invalidateQueries({ queryKey: gameQueryKeys.playing });
       navigate(`/partita/${game.id}`);
     } catch (error) {
       setAiError(humanMessage(error));
