@@ -15,7 +15,7 @@ import {
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StatTile } from '@/components/ui/StatTile';
 import { useAuth } from '@/lib/auth/store';
-import { pickGreeting } from '@/lib/greetings';
+import { pickGreeting, splitHighlights } from '@/lib/greetings';
 import {
   HEATMAP_WEEKS,
   useGameStats,
@@ -60,7 +60,7 @@ export function HomePage() {
     <div className="animate-in space-y-6">
       <header>
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight md:text-[32px]">
-          {greeting}
+          <Greeting text={greeting} />
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           Bentornato, <span className="font-medium text-(--text-secondary)">{user?.username}</span>.
@@ -239,6 +239,28 @@ export function HomePage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/**
+ * Il saluto della home, con la parte fra asterischi in evidenza.
+ *
+ * `italic` su un peso semibold ha bisogno di un filo d'aria a destra, altrimenti
+ * l'ultima lettera inclinata tocca la parola successiva: da qui il `pr-[0.06em]`.
+ */
+function Greeting({ text }: { text: string }) {
+  return (
+    <>
+      {splitHighlights(text).map((segment, index) =>
+        segment.highlight ? (
+          <em key={index} className="pr-[0.06em] italic text-brand-400">
+            {segment.text}
+          </em>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
+    </>
   );
 }
 
