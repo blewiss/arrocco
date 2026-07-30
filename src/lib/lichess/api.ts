@@ -7,12 +7,15 @@ import type {
   AiGameResponse,
   BoardStreamEvent,
   Color,
+  Crosstable,
   ExportedGame,
   GameExport,
   NowPlayingGame,
+  PublicUser,
   PuzzleActivityEntry,
   PuzzleDashboard,
   PuzzleResponse,
+  UserStatus,
 } from './types';
 
 /* ── Account ────────────────────────────────────────────────────────────── */
@@ -244,6 +247,113 @@ export function solvePuzzles(
     requireAuth: true,
     json: { solutions },
   });
+}
+
+/* ── Social ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Elenco dei giocatori seguiti. Richiede lo scope `follow:read`.
+ *
+ * Ogni riga è un profilo **completo** (`UserExtended`), non un riferimento:
+ * rating, titolo, `seenAt` e conteggio partite arrivano già qui, e la lista
+ * amici non ha bisogno di una seconda passata sui profili.
+ *
+ * Attenzione a due asimmetrie dell'API, entrambe deliberate da parte di
+ * Lichess e non aggirabili:
+ *  - **non esiste l'endpoint dei follower**: si può leggere chi seguiamo, non
+ *    chi ci segue;
+ *  - la lista dei seguiti *di un altro utente* non è pubblica.
+ *
+ * Corsia `serial` per prudenza: è uno stream, e chi segue molte persone lo
+ * tiene aperto per un po'. Non è un vincolo documentato come per
+ * `/api/games/user`, ma non costa nulla ed evita di far concorrenza agli
+ * export mentre scorre.
+ */
+export async function fetchFollowing(signal?: AbortSignal): Promise<PublicUser[]> {
+  const response = await apiFetch('/api/rel/following', {
+    accept: 'application/x-ndjson',
+    requireAuth: true,
+    lane: 'serial',
+    noTimeout: true,
+    signal,
+  });
+  return collectNdjson<PublicUser>(response, signal);
+}
+
+/** Il massimo di id accettati da `/api/users/status` in una richiesta. */
+const STATUS_BATCH_SIZE = 100;
+
+/**
+ * Stato in tempo reale di un gruppo di giocatori: online, in partita, in
+ * streaming.
+ *
+ * È l'endpoint che rende viva la lista amici. La spec lo descrive come "very
+ * fast and cheap" e autorizza esplicitamente una chiamata ogni 5 secondi,
+ * quindi è l'unico punto dell'app in cui il polling è appropriato.
+ *
+ * Chiediamo sempre `withGameMetas`, che sostituisce il booleano `playing` con
+ * un oggetto contenente id e cadenza della partita in corso — così dalla lista
+ * si può entrare a guardare direttamente. Nota che `withGameMetas` **disattiva**
+ * `withGameIds`: i due non si combinano, e infatti `playingId` non serve più.
+ *
+ * Oltre 100 id la richiesta va spezzata. I lotti partono in parallelo sulla
+ * corsia normale, che ne lascia scorrere due per volta.
+ */
+export async function fetchUsersStatus(
+  ids: readonly string[],
+  signal?: AbortSignal,
+): Promise<UserStatus[]> {
+  if (ids.length === 0) return [];
+
+  const batches: string[][] = [];
+  for (let index = 0; index < ids.length; index += STATUS_BATCH_SIZE) {
+    batches.push(ids.slice(index, index + STATUS_BATCH_SIZE) as string[]);
+  }
+
+  const results = await Promise.all(
+    batches.map((batch) => {
+      const query = new URLSearchParams({
+        ids: batch.join(','),
+        withGameMetas: 'true',
+        withSignal: 'true',
+      });
+      return getJson<UserStatus[]>(`/api/users/status?${query.toString()}`, { signal });
+    }),
+  );
+
+  return results.flat();
+}
+
+/**
+ * Profilo pubblico di un giocatore.
+ *
+ * Autenticati, la risposta guadagna `following`, `blocking` e `count.me`
+ * (le partite giocate contro di noi): non serve chiedere altrove se quello
+ * che stiamo guardando è già un amico.
+ */
+export function fetchPublicUser(username: string, signal?: AbortSignal): Promise<PublicUser> {
+  const query = new URLSearchParams({ rank: 'true', profile: 'true', trophies: 'false' });
+  return getJson<PublicUser>(
+    `/api/user/${encodeURIComponent(username)}?${query.toString()}`,
+    { signal },
+  );
+}
+
+/**
+ * Testa a testa fra due giocatori: punteggio complessivo e serie in corso.
+ *
+ * Una chiamata sola al posto di scaricare e filtrare lo storico partite, che
+ * passerebbe da `/api/games/user` — l'endpoint col rate limit più severo.
+ */
+export function fetchCrosstable(
+  user1: string,
+  user2: string,
+  signal?: AbortSignal,
+): Promise<Crosstable> {
+  return getJson<Crosstable>(
+    `/api/crosstable/${encodeURIComponent(user1)}/${encodeURIComponent(user2)}?matchup=true`,
+    { signal },
+  );
 }
 
 /* ── Creazione partite ──────────────────────────────────────────────────── */

@@ -1,4 +1,4 @@
-import { Archive, BookOpen, LayoutDashboard, Puzzle, Swords } from 'lucide-react';
+import { Archive, BookOpen, LayoutDashboard, Puzzle, Swords, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -30,6 +30,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Puzzle',
     icon: Puzzle,
     hint: 'Allenati con i puzzle di Lichess',
+  },
+  {
+    to: '/amici',
+    label: 'Amici',
+    icon: Users,
+    hint: 'I giocatori che segui, e chi è online',
+    requiresAuth: true,
   },
   {
     to: '/risorse',

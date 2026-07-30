@@ -5,6 +5,7 @@ import { Shell } from '@/components/layout/Shell';
 import { AuthError, RateLimitError } from '@/lib/lichess/errors';
 import { useAuth } from '@/lib/auth/store';
 import { ArchivePage } from '@/routes/ArchivePage';
+import { FriendsPage } from '@/routes/FriendsPage';
 import { GamePage } from '@/routes/GamePage';
 import { HomePage } from '@/routes/HomePage';
 import { PlayPage } from '@/routes/PlayPage';
@@ -50,6 +51,7 @@ export function App() {
           <Route path="/partita/:gameId" element={<GamePage />} />
           <Route path="/riepilogo/:gameId" element={<ReviewPage />} />
           <Route path="/puzzle" element={<PuzzlesPage />} />
+          <Route path="/amici" element={<FriendsPage />} />
           <Route path="/risorse" element={<ResourcesPage />} />
           <Route path="/archivio" element={<ArchivePage />} />
           {/* Qualsiasi rotta sconosciuta torna alla home invece di mostrare

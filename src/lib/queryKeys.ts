@@ -23,3 +23,15 @@ export const puzzleQueryKeys = {
   all: ['puzzles'] as const,
   activity: (userId: string | undefined) => ['puzzles', 'activity', userId] as const,
 };
+
+export const socialQueryKeys = {
+  all: ['social'] as const,
+  /** Elenco dei seguiti, per account. */
+  following: (userId: string | undefined) => ['social', 'following', userId] as const,
+  /** Presenza in tempo reale. La chiave include gli id perché cambiando la
+   *  lista degli amici cambia anche la richiesta. */
+  status: (ids: readonly string[]) => ['social', 'status', ids.join(',')] as const,
+  profile: (username: string | undefined) => ['social', 'profile', username] as const,
+  crosstable: (me: string | undefined, other: string | undefined) =>
+    ['social', 'crosstable', me, other] as const,
+};

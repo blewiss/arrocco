@@ -35,6 +35,38 @@ Verificati sull'API in produzione e sulla spec OpenAPI 2.0.155, non supposti:
   successivo: una richiesta invece di due. È il motivo per cui l'allenamento non usa
   `/api/puzzle/next` dopo il primo caricamento.
 
+### Cosa espone davvero l'API social
+
+Verificato sulla spec e con chiamate live all'API in produzione:
+
+- **Si può leggere chi segui, non chi ti segue.** `GET /api/rel/following` (scope
+  `follow:read`, ndjson) restituisce righe `UserExtended`, cioè profili **completi**: rating,
+  titolo, `seenAt`, `count`. Non serve una seconda passata sui profili. L'endpoint dei
+  follower non esiste, e la lista dei seguiti *di un altro utente* non è pubblica: sono
+  scelte di privacy di Lichess, non lacune della spec.
+- **`GET /api/users/status` è l'unico endpoint su cui il polling è appropriato.** La spec lo
+  descrive "very fast and cheap" e autorizza esplicitamente una chiamata ogni 5 secondi.
+  Massimo 100 id per richiesta, oltre i quali va spezzato in lotti.
+  `withGameMetas=true` trasforma `playing` da booleano a oggetto `{id, clock, variant}` e
+  **disattiva** `withGameIds`: i due non si combinano. I flag falsi vengono *omessi*, non
+  inviati a `false`.
+- **I messaggi privati sono irraggiungibili da browser.** `POST /inbox/{username}` sta fuori
+  da `/api`: la preflight risponde 404 senza header CORS, esattamente come
+  `GET /game/export/{id}`. Non esiste un equivalente sotto `/api`, quindi la funzione non è
+  implementabile — non è una scelta di design di Arrocco.
+- `GET /api/crosstable/{u1}/{u2}` dà il testa a testa già calcolato. Ricavarlo dallo storico
+  significherebbe passare da `/api/games/user`, che è l'endpoint col rate limit più severo:
+  qui è una chiamata leggera.
+- Autenticati, `GET /api/user/{username}` guadagna `following`, `blocking` e `count.me`
+  (le partite giocate contro di noi).
+- **Le bandiere dei profili non sono ISO puro**: accanto ai codici a due lettere esistono
+  suddivisioni (`GB-ENG`) e valori speciali con underscore (`_lichess`, `_earth`).
+- **Le flair non sono servibili**: `lichess1.org/assets/lifat/flair/img/{flair}.webp` risponde
+  404, e sarebbe comunque un host esterno che il build Tauri non può raggiungere offline.
+- L'oggetto `perfs` mescola due forme: cadenze e varianti hanno `{games, rating, rd, prog}`,
+  mentre `storm`, `racer` e `streak` hanno `{runs, score}`. Vedi `RATED_PERFS` in
+  `src/lib/social/friends.ts`: l'elenco è esplicito proprio per questo.
+
 ### Convenzione dei puzzle
 
 Verificata su puzzle reali (script di controllo in `scratchpad`, 6/6 conformi):
@@ -89,4 +121,10 @@ Verificata su puzzle reali (script di controllo in `scratchpad`, 6/6 conformi):
 - **Le sezioni che richiedono il login non sono state provate end-to-end**: servirebbe un
   account Lichess reale. Home, Gioca, Partita e Archivio sono scritti contro le shape
   verificate della spec, ma il primo accesso reale è il vero collaudo.
+- **Amici è verificata a metà.** Rendering, ordinamento per presenza, filtri, scheda profilo,
+  crosstable e polling (~8 s, in pausa a scheda nascosta) sono stati collaudati nel browser
+  sostituendo temporaneamente la sola `fetchFollowing` con `POST /api/users` su nomi reali:
+  tutto il resto della catena girava su dati veri e anonimi. L'unica cosa che resta da provare
+  con un account è `GET /api/rel/following`, che richiede lo scope `follow:read` — nuovo, e
+  quindi da riautorizzare al primo accesso.
 - **Il desktop Tauri non è mai stato compilato** (Rust assente sulla macchina di sviluppo).

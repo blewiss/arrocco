@@ -40,6 +40,9 @@ export interface Perf {
   rd: number;
   prog: number;
   prov?: boolean;
+  /** Posizione nella classifica globale. Solo con `rank=true`, e solo per
+   *  chi è stato attivo di recente. */
+  rank?: number;
 }
 
 export interface AccountUser {
@@ -329,6 +332,102 @@ export interface AiGameResponse {
   perf: string;
   rated: boolean;
   source: string;
+}
+
+/* ── Social ────────────────────────────────────────────────────────────── */
+
+/** Conteggio partite di un profilo pubblico. */
+export interface UserCount {
+  all: number;
+  rated: number;
+  win: number;
+  loss: number;
+  draw: number;
+  playing: number;
+  ai?: number;
+  import?: number;
+  /** Partite giocate contro di *noi*. Compare solo su richiesta autenticata. */
+  me?: number;
+}
+
+/** La sezione `profile` di un utente pubblico, tutta facoltativa. */
+export interface UserProfile {
+  /** Codice paese o regione, es. `DE`. Non è ISO puro: esistono valori come `_lichess`. */
+  flag?: string;
+  location?: string;
+  bio?: string;
+  realName?: string;
+  /** Un link per riga, senza protocollo. Separati da `\r\n`. */
+  links?: string;
+  fideRating?: number;
+}
+
+/**
+ * Utente pubblico: la shape `UserExtended` della spec.
+ *
+ * È quella restituita sia da `/api/user/{username}` sia da **ogni riga** di
+ * `/api/rel/following` — motivo per cui la lista amici non ha bisogno di una
+ * seconda passata sui profili.
+ *
+ * Quasi tutto è opzionale perché Lichess omette i campi vuoti invece di
+ * inviarli a zero: un profilo senza bio non ha `profile`, e chi non è mai
+ * stato online non ha `seenAt`.
+ */
+export interface PublicUser {
+  id: string;
+  username: string;
+  title?: string;
+  patron?: boolean;
+  verified?: boolean;
+  createdAt?: number;
+  seenAt?: number;
+  perfs?: Partial<Record<string, Perf>>;
+  profile?: UserProfile;
+  playTime?: { total: number; tv: number };
+  count?: UserCount;
+  url?: string;
+  /** URL della partita in corso. Presente solo mentre sta giocando. */
+  playing?: string;
+  streaming?: boolean;
+  /** Account chiuso: il profilo esiste ancora ma è svuotato. */
+  disabled?: boolean;
+  tosViolation?: boolean;
+  /** I tre campi seguenti compaiono solo su richiesta autenticata. */
+  followable?: boolean;
+  following?: boolean;
+  blocking?: boolean;
+}
+
+/**
+ * Elemento di `/api/users/status`.
+ *
+ * I flag falsi vengono **omessi**, non inviati a `false`: chi è offline non ha
+ * la chiave `online`. Verificato sull'API in produzione.
+ */
+export interface UserStatus {
+  id: string;
+  name: string;
+  title?: string;
+  patron?: boolean;
+  online?: boolean;
+  streaming?: boolean;
+  /**
+   * Con `withGameMetas=true` è un oggetto con i dati della partita in corso,
+   * non un booleano. Arrocco chiede sempre i meta, quindi qui è sempre questa
+   * forma.
+   */
+  playing?: { id: string; clock?: string; variant?: string };
+  /** Qualità della connessione da 1 (lag > 500 ms) a 4 (lag < 150 ms). */
+  signal?: number;
+}
+
+/** `/api/crosstable/{u1}/{u2}`: il testa a testa fra due giocatori. */
+export interface Crosstable {
+  /** Punteggi indicizzati per id utente; le patte valgono mezzo punto. */
+  users: Record<string, number>;
+  nbGames: number;
+  /** Serie in corso, solo con `matchup=true` e solo se ne esiste una. */
+  matchup?: { users: Record<string, number>; nbGames: number };
 }
 
 /** Elemento di `/api/account/playing`. */

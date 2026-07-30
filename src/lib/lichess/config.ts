@@ -18,8 +18,11 @@ export const OAUTH_CLIENT_ID = 'arrocco.app';
  *  - puzzle:read       leggere storico e dashboard puzzle (per la heatmap)
  *  - puzzle:write      registrare i puzzle risolti sul proprio account
  *  - preference:read   leggere le preferenze (es. orientamento scacchiera)
+ *  - follow:read       leggere l'elenco dei giocatori seguiti (sezione Amici)
  *
  * Deliberatamente esclusi: email:read, e ogni scope di scrittura sull'account.
+ * In particolare `follow:write`: la sezione Amici è di sola lettura, seguire e
+ * bloccare restano azioni da compiere su lichess.org.
  */
 export const OAUTH_SCOPES = [
   'board:play',
@@ -27,6 +30,7 @@ export const OAUTH_SCOPES = [
   'puzzle:read',
   'puzzle:write',
   'preference:read',
+  'follow:read',
 ] as const;
 
 export const APP_VERSION = '1.0.0';

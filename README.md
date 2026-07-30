@@ -17,6 +17,7 @@ alimenta anche l'applicazione desktop.
 | **Gioca**     | Partite contro Stockfish (livelli 1–8) e ricerca di un avversario umano nella lobby di Lichess; ripresa delle partite in corso |
 | **Partita**   | Scacchiera Chessground, orologi con countdown fluido, lista mosse, promozione, offerta di patta, abbandono, premosse     |
 | **Puzzle**    | Puzzle dal database Lichess con cinque livelli di difficoltà, validazione mossa per mossa, risposte automatiche dell'avversario, registrazione del risultato sull'account |
+| **Amici**     | I giocatori che segui, con presenza in tempo reale (online, in partita con la cadenza, in diretta); scheda profilo con rating, bilancio e testa a testa contro di te |
 | **Archivio**  | Storico completo paginato, con filtri per esito e cadenza                                                                |
 | **Risorse**   | Struttura predisposta; i contenuti arriveranno in una versione successiva                                                |
 
@@ -170,8 +171,11 @@ app senza backend:
 | `puzzle:read`     | leggere lo storico puzzle (per la heatmap)      |
 | `puzzle:write`    | registrare i puzzle risolti                     |
 | `preference:read` | leggere le preferenze dell'account              |
+| `follow:read`     | leggere l'elenco dei giocatori che segui        |
 
-`email:read` e ogni permesso di scrittura sull'account sono deliberatamente esclusi.
+`email:read` e ogni permesso di scrittura sull'account sono deliberatamente esclusi — incluso
+`follow:write`: la sezione Amici è di sola lettura, seguire e bloccare restano azioni da fare
+su Lichess.
 
 ---
 
@@ -208,10 +212,12 @@ src/
 │   ├── auth/        flusso PKCE e store della sessione
 │   ├── chess/       ponte fra chess.js (regole) e Chessground (rendering)
 │   ├── stats/       aggregazione per giorno, streak, win rate
-│   └── hooks/       partita live, ricerca avversario, trainer puzzle
+│   ├── social/      unione fra profili seguiti e presenza in tempo reale
+│   └── hooks/       partita live, ricerca avversario, trainer puzzle, amici
 ├── components/
 │   ├── layout/      shell, sidebar, navigazione
 │   ├── chess/       scacchiera, orologio, lista mosse, promozione
+│   ├── social/      lista amici e scheda profilo
 │   └── ui/          primitive del design system
 └── routes/          una pagina per sezione
 ```
