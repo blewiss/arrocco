@@ -10,6 +10,7 @@ import { HomePage } from '@/routes/HomePage';
 import { PlayPage } from '@/routes/PlayPage';
 import { PuzzlesPage } from '@/routes/PuzzlesPage';
 import { ResourcesPage } from '@/routes/ResourcesPage';
+import { ReviewPage } from '@/routes/ReviewPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ export function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/gioca" element={<PlayPage />} />
           <Route path="/partita/:gameId" element={<GamePage />} />
+          <Route path="/riepilogo/:gameId" element={<ReviewPage />} />
           <Route path="/puzzle" element={<PuzzlesPage />} />
           <Route path="/risorse" element={<ResourcesPage />} />
           <Route path="/archivio" element={<ArchivePage />} />

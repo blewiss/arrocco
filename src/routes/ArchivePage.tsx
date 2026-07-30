@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Archive, LogIn } from 'lucide-react';
+import { Archive, ExternalLink, LogIn } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { formatRelative } from '@/components/home/RecentGames';
 import { Badge, OutcomeChip } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -258,12 +259,12 @@ function ArchiveRow({ game, userId }: { game: ExportedGame; userId: string }) {
   const color = colorOf(game, userId);
 
   return (
-    <li>
-      <a
-        href={`${LICHESS_ORIGIN}/${game.id}`}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-(--surface-raised)"
+    // Il riepilogo si apre dentro l'app; Lichess resta un'azione secondaria,
+    // tenuta fuori dal Link perché non si annidano due elementi interattivi.
+    <li className="group flex items-center transition-colors hover:bg-(--surface-raised)">
+      <Link
+        to={`/riepilogo/${game.id}`}
+        className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-5"
       >
         <OutcomeChip outcome={outcome} />
 
@@ -309,6 +310,17 @@ function ArchiveRow({ game, userId }: { game: ExportedGame; userId: string }) {
             {formatRelative(game.createdAt)}
           </span>
         </div>
+      </Link>
+
+      <a
+        href={`${LICHESS_ORIGIN}/${game.id}`}
+        target="_blank"
+        rel="noreferrer noopener"
+        title="Apri su Lichess"
+        aria-label="Apri su Lichess"
+        className="mr-3 ml-2 shrink-0 rounded-md p-1.5 text-muted opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-(--text-primary)"
+      >
+        <ExternalLink className="size-3.5" />
       </a>
     </li>
   );

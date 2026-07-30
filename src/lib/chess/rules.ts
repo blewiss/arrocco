@@ -110,6 +110,58 @@ export function toMovePairs(sanMoves: readonly string[]): MovePair[] {
   return pairs;
 }
 
+/** Una posizione attraversata dalla partita, con la mossa che l'ha prodotta. */
+export interface ReplayPosition {
+  /** 0 = posizione iniziale, N = dopo l'N-esima semimossa. */
+  ply: number;
+  fen: string;
+  /** SAN della mossa che ha portato qui. Assente solo sulla posizione 0. */
+  san?: string;
+  /** Caselle da evidenziare, per Chessground. */
+  lastMove?: [Key, Key];
+  check?: Color;
+  /** Colore che deve muovere in questa posizione. */
+  turn: Color;
+}
+
+/**
+ * Riproduce una partita da mosse SAN e restituisce **ogni** posizione
+ * attraversata, non solo quella finale: è ciò che serve per navigare avanti e
+ * indietro nello storico senza ricalcolare nulla a ogni click.
+ *
+ * L'indice nell'array coincide col ply, quindi l'array ha sempre un elemento
+ * in più delle mosse. Il formato SAN è quello di `/game/export/{id}`; lo
+ * stream della Board API usa invece UCI, vedi `chessFromUciMoves`.
+ */
+export function replaySanMoves(moves: string, initialFen?: string): ReplayPosition[] {
+  const chess = initialFen && initialFen !== 'startpos' ? new Chess(initialFen) : new Chess();
+
+  const positions: ReplayPosition[] = [
+    { ply: 0, fen: chess.fen(), turn: turnColor(chess), check: checkColor(chess) },
+  ];
+
+  for (const san of moves.trim().split(/\s+/)) {
+    if (!san) continue;
+    try {
+      const move = chess.move(san);
+      positions.push({
+        ply: positions.length,
+        fen: chess.fen(),
+        san: move.san,
+        lastMove: [move.from as Key, move.to as Key],
+        check: checkColor(chess),
+        turn: turnColor(chess),
+      });
+    } catch {
+      // Una mossa non applicabile interrompe la ricostruzione: meglio una
+      // partita troncata, e visibilmente tale, che posizioni sbagliate.
+      break;
+    }
+  }
+
+  return positions;
+}
+
 /**
  * Ricostruisce le mosse SAN a partire dal PGN "nudo" dei puzzle, che è una
  * sequenza di SAN separata da spazi senza numerazione né intestazioni.

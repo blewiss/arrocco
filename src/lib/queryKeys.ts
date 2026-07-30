@@ -13,6 +13,8 @@ export const gameQueryKeys = {
   all: ['games'] as const,
   recent: (username: string | undefined) => ['games', 'recent', username] as const,
   archive: (username: string | undefined) => ['games', 'archive', username] as const,
+  /** Una singola partita con mosse e analisi, per il riepilogo. */
+  detail: (gameId: string | undefined) => ['games', 'detail', gameId] as const,
   /** Partite in corso: `/api/account/playing`. */
   playing: ['account', 'playing'] as const,
 };

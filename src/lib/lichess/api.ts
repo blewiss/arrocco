@@ -1,4 +1,5 @@
 import { apiFetch, getJson, postJson } from './client';
+import { LichessError } from './errors';
 import { collectNdjson, readNdjson } from './ndjson';
 import type {
   AccountStreamEvent,
@@ -7,6 +8,7 @@ import type {
   BoardStreamEvent,
   Color,
   ExportedGame,
+  GameExport,
   NowPlayingGame,
   PuzzleActivityEntry,
   PuzzleDashboard,
@@ -107,6 +109,60 @@ async function runExport({
   );
 
   return collectNdjson<ExportedGame>(response, signal);
+}
+
+/**
+ * Export di una singola partita, con mosse ed eventuale analisi.
+ *
+ * Usa l'endpoint *bulk* con un solo id, e non `GET /game/export/{id}`, che pure
+ * restituirebbe esattamente la stessa cosa. Il motivo è una trappola CORS
+ * verificata sull'API in produzione:
+ *
+ *   - `GET /game/export/{id}` risponde 200 **con** gli header CORS corretti,
+ *     ma la **preflight OPTIONS sulla stessa URL risponde 404 senza header**.
+ *     Sta fuori da `/api`, e la gestione delle preflight di Lichess è agganciata
+ *     a `/api/*`. Finché la richiesta è "semplice" passa; appena si aggiunge
+ *     `Authorization` — cioè sempre, per un utente autenticato — il browser fa
+ *     la preflight e la blocca.
+ *   - `POST /api/games/export/_ids` risponde 204 alla preflight ed è quindi
+ *     utilizzabile da browser in ogni condizione.
+ *
+ * Da qui la regola generale: **da Arrocco si chiamano solo rotte sotto `/api`**.
+ *
+ * Altri due dettagli che vale la pena fissare:
+ *  - `moves` arriva in **SAN**, non in UCI come nello stream della Board API;
+ *  - `evals` e `accuracy` non fanno calcolare niente a Lichess. Restituiscono
+ *    l'analisi *se* qualcuno l'ha già richiesta per questa partita su
+ *    lichess.org; altrimenti i campi semplicemente non compaiono. Non esiste
+ *    un endpoint pubblico per richiederla, quindi è un di più opportunistico.
+ */
+export async function fetchGame(gameId: string, signal?: AbortSignal): Promise<GameExport> {
+  const query = new URLSearchParams({
+    moves: 'true',
+    evals: 'true',
+    accuracy: 'true',
+    opening: 'true',
+    division: 'true',
+    // Il PGN dentro il JSON duplicherebbe `moves` senza aggiungere nulla.
+    pgnInJson: 'false',
+    clocks: 'false',
+    literate: 'false',
+  });
+
+  const path = `/api/games/export/_ids?${query.toString()}`;
+  const response = await apiFetch(path, {
+    method: 'POST',
+    accept: 'application/x-ndjson',
+    // Il corpo è l'elenco degli id separati da virgola: qui uno solo.
+    // `text/plain` è anche il Content-Type che non complica la preflight.
+    text: gameId,
+    signal,
+  });
+
+  const [game] = await collectNdjson<GameExport>(response, signal);
+  // Un id inesistente non è un errore HTTP: lo stream torna semplicemente vuoto.
+  if (!game) throw new LichessError('Partita non trovata su Lichess.', 404, path);
+  return game;
 }
 
 /* ── Puzzle ─────────────────────────────────────────────────────────────── */

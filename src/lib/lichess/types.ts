@@ -89,6 +89,66 @@ export interface ExportedGame {
   clock?: { initial: number; increment: number; totalTime: number };
 }
 
+/* ── Export di una singola partita ──────────────────────────────────────── */
+
+/**
+ * Giudizio di Lichess su una mossa. I nomi arrivano in inglese dall'API e
+ * restano tali nei tipi: la traduzione è affare della UI.
+ */
+export type JudgmentName = 'Inaccuracy' | 'Mistake' | 'Blunder';
+
+/**
+ * Una voce di `analysis`, allineata **per indice** alle semimosse di `moves`:
+ * `analysis[i]` giudica la mossa `i` e valuta la posizione che ne risulta.
+ *
+ * L'array può essere più corto delle mosse di una voce: la posizione finale di
+ * una partita conclusa per matto non viene valutata. Verificato su partite
+ * reali dell'API.
+ */
+export interface MoveAnalysis {
+  /** Centipawn dal punto di vista del bianco. Assente quando c'è `mate`. */
+  eval?: number;
+  /** Matto in N semimosse, col segno: negativo se a mattare è il nero. */
+  mate?: number;
+  /** Mossa migliore in UCI. Presente solo sulle mosse giudicate. */
+  best?: string;
+  /** Variante consigliata, in SAN separato da spazi. */
+  variation?: string;
+  judgment?: { name: JudgmentName; comment: string };
+}
+
+/** Riepilogo per giocatore, presente solo se la partita è stata analizzata. */
+export interface PlayerAnalysis {
+  inaccuracy: number;
+  mistake: number;
+  blunder: number;
+  /** Average centipawn loss: più basso è meglio. */
+  acpl: number;
+  /** Percentuale 0–100 già calcolata da Lichess. */
+  accuracy?: number;
+}
+
+export interface GameExportPlayer extends GamePlayer {
+  analysis?: PlayerAnalysis;
+}
+
+/**
+ * Risposta di `/game/export/{id}`.
+ *
+ * Attenzione: qui `moves` è in **SAN** (`e4 e5 Nf3 …`), non in UCI come nello
+ * stream della Board API. È la differenza che fa sbagliare la ricostruzione
+ * della partita se la si dà per scontata.
+ */
+export interface GameExport extends Omit<ExportedGame, 'players'> {
+  players: { white: GameExportPlayer; black: GameExportPlayer };
+  /** Posizione di partenza, presente sulle varianti che non usano quella standard. */
+  initialFen?: string;
+  /** C'è solo se qualcuno ha già richiesto l'analisi su lichess.org. */
+  analysis?: MoveAnalysis[];
+  /** Semimosse in cui iniziano mediogioco e finale, secondo Lichess. */
+  division?: { middle?: number; end?: number };
+}
+
 /* ── Puzzle ─────────────────────────────────────────────────────────────── */
 
 export interface PuzzleData {

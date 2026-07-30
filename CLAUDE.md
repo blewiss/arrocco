@@ -17,6 +17,14 @@ Verificati sull'API in produzione e sulla spec OpenAPI 2.0.155, non supposti:
   smesso.
 - **Ricevuto un 429, Lichess chiede di attendere un minuto pieno.** Il limiter applica un
   cooldown globale (`src/lib/lichess/queue.ts`) invece di ritentare subito.
+- **Solo rotte sotto `/api`.** Il CORS è aperto, ma la gestione delle richieste
+  `OPTIONS` è agganciata a `/api/*`. `GET /game/export/{id}` risponde 200 *con* gli header
+  CORS corretti, però la preflight sulla stessa URL risponde **404 senza header**: finché la
+  richiesta è "semplice" passa, e appena si aggiunge `Authorization` — cioè sempre, per un
+  utente autenticato — il browser la blocca. Il sintomo è fuorviante, perché la console
+  riporta l'URL della GET e non quello della preflight. L'equivalente `/api` va sempre
+  cercato: per l'export di una partita singola è `POST /api/games/export/_ids`, che alla
+  preflight risponde 204.
 - **`POST /api/board/seek` non restituisce la partita.** La richiesta resta appesa, ed è la
   connessione aperta stessa a mantenere attiva l'inserzione nella lobby: chiuderla ritira la
   ricerca. La partita arriva come evento `gameStart` su `/api/stream/event`, quindi servono

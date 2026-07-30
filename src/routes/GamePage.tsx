@@ -12,7 +12,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Key } from 'chessground/types';
 import { Board } from '@/components/chess/Board';
 import { Clock } from '@/components/chess/Clock';
-import { MoveList } from '@/components/chess/MoveList';
+import { MoveList, moveCountLabel } from '@/components/chess/MoveList';
 import { PromotionPicker, type PromotionPiece } from '@/components/chess/PromotionPicker';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -199,10 +199,15 @@ export function GamePage() {
                   </p>
                 </div>
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => void navigate('/gioca')}>
                   Nuova partita
                 </Button>
+                <Link to={`/riepilogo/${gameId}`}>
+                  <Button size="sm" variant="secondary">
+                    Rivedi la partita
+                  </Button>
+                </Link>
                 <Link to="/">
                   <Button size="sm" variant="secondary">
                     Home
@@ -257,7 +262,7 @@ export function GamePage() {
           <Card>
             <CardHeader
               title="Mosse"
-              subtitle={game.ply === 0 ? undefined : `${Math.ceil(game.ply / 2)} mosse`}
+              subtitle={moveCountLabel(game.ply)}
               action={
                 <button
                   type="button"
