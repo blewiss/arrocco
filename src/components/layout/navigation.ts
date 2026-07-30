@@ -1,10 +1,18 @@
-import { Archive, BookOpen, LayoutDashboard, Puzzle, Swords, Users } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Archive, BookOpen, LayoutDashboard, Puzzle, Users } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { KnightIcon, type IconComponentProps } from '@/components/ui/icons';
+
+/**
+ * Le voci mescolano icone lucide e icone nostre (vedi `components/ui/icons`),
+ * quindi il tipo è la firma minima che la sidebar usa davvero invece di
+ * `LucideIcon`, che escluderebbe le seconde.
+ */
+export type NavIcon = ComponentType<IconComponentProps>;
 
 export interface NavItem {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon: NavIcon;
   /** Descrizione mostrata nel tooltip a sidebar compressa. */
   hint: string;
   /** Sezioni che richiedono il login per essere utili. */
@@ -21,7 +29,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     to: '/gioca',
     label: 'Gioca',
-    icon: Swords,
+    icon: KnightIcon,
     hint: 'Inizia una nuova partita',
     requiresAuth: true,
   },

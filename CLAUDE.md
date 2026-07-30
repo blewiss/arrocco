@@ -110,6 +110,12 @@ Verificata su puzzle reali (script di controllo in `scratchpad`, 6/6 conformi):
   passare a `BrowserRouter`.
 - **Numeri che cambiano** (orologi, rating, contatori) vogliono la classe `.tnum`, altrimenti
   "ballano".
+- **Le icone non lucide vanno in `src/components/ui/icons.tsx`**, come componenti React con
+  `currentColor` e senza `width`/`height` (la misura la dà `size-*`). Gli SVG in
+  `src/assets/icons/` restano solo come sorgente: importarli come file darebbe colori fissi
+  che ignorano il tema e una richiesta di rete in più, che sotto il protocollo asset di Tauri
+  è una complicazione evitabile. Il tipo condiviso è `IconComponentProps`, che sta anche alle
+  icone lucide — vedi `NavIcon` in `components/layout/navigation.ts`.
 - Tutte le chiamate API passano da `src/lib/lichess/client.ts`. Non usare `fetch` diretto
   verso Lichess: aggirerebbe limiter, cooldown e gestione degli errori tipizzati.
 

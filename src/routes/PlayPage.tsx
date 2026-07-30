@@ -1,11 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bot, Clock3, LogIn, Play, Users, X } from 'lucide-react';
+import { Bot, LogIn, Play, Search, Users, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
+import {
+  BulletIcon,
+  ClockIcon,
+  KnightIcon,
+  ThunderIcon,
+  type IconComponentProps,
+} from '@/components/ui/icons';
 import { useAuth } from '@/lib/auth/store';
 import { cn } from '@/lib/cn';
 import { createAiGame, fetchNowPlaying } from '@/lib/lichess/api';
@@ -14,37 +21,101 @@ import { useSeek } from '@/lib/hooks/useSeek';
 import { gameQueryKeys } from '@/lib/queryKeys';
 import { StorageKeys, readJson, writeJson } from '@/lib/storage';
 
-/** Controlli di tempo offerti. `limit` in secondi, `increment` in secondi. */
-const TIME_CONTROLS = [
-  { label: '1+0', limitSeconds: 60, increment: 0, speed: 'Bullet' },
-  { label: '3+0', limitSeconds: 180, increment: 0, speed: 'Blitz' },
-  { label: '3+2', limitSeconds: 180, increment: 2, speed: 'Blitz' },
-  { label: '5+0', limitSeconds: 300, increment: 0, speed: 'Blitz' },
-  { label: '5+3', limitSeconds: 300, increment: 3, speed: 'Blitz' },
-  { label: '10+0', limitSeconds: 600, increment: 0, speed: 'Rapid' },
-  { label: '10+5', limitSeconds: 600, increment: 5, speed: 'Rapid' },
-  { label: '15+10', limitSeconds: 900, increment: 10, speed: 'Rapid' },
-] as const;
-
+type Family = 'bullet' | 'blitz' | 'rapid';
+type Opponent = 'ai' | 'human';
 type ColorChoice = 'random' | 'white' | 'black';
 
+/** Controlli di tempo offerti. `limitSeconds` e `increment` in secondi. */
+const TIME_CONTROLS = [
+  { label: '1+0', limitSeconds: 60, increment: 0, family: 'bullet' },
+  { label: '2+1', limitSeconds: 120, increment: 1, family: 'bullet' },
+  { label: '3+0', limitSeconds: 180, increment: 0, family: 'blitz' },
+  { label: '3+2', limitSeconds: 180, increment: 2, family: 'blitz' },
+  { label: '5+0', limitSeconds: 300, increment: 0, family: 'blitz' },
+  { label: '5+3', limitSeconds: 300, increment: 3, family: 'blitz' },
+  { label: '10+0', limitSeconds: 600, increment: 0, family: 'rapid' },
+  { label: '10+5', limitSeconds: 600, increment: 5, family: 'rapid' },
+  { label: '15+10', limitSeconds: 900, increment: 10, family: 'rapid' },
+] as const satisfies ReadonlyArray<{
+  label: string;
+  limitSeconds: number;
+  increment: number;
+  family: Family;
+}>;
+
+type TimeControl = (typeof TIME_CONTROLS)[number];
+
+const FAMILIES: ReadonlyArray<{
+  key: Family;
+  label: string;
+  icon: (props: IconComponentProps) => React.ReactElement;
+}> = [
+  { key: 'bullet', label: 'Bullet', icon: BulletIcon },
+  { key: 'blitz', label: 'Blitz', icon: ThunderIcon },
+  { key: 'rapid', label: 'Rapid', icon: ClockIcon },
+];
+
 interface PlayPrefs {
-  timeIndex: number;
+  opponent: Opponent;
+  /** Il controllo di tempo è salvato per etichetta e non per indice: così
+   *  aggiungere una cadenza all'elenco non cambia la scelta di chi ha già
+   *  giocato. */
+  timeLabel: string;
   aiLevel: number;
   color: ColorChoice;
   rated: boolean;
 }
 
-const DEFAULT_PREFS: PlayPrefs = { timeIndex: 3, aiLevel: 3, color: 'random', rated: false };
+const DEFAULT_PREFS: PlayPrefs = {
+  opponent: 'ai',
+  timeLabel: '5+0',
+  aiLevel: 3,
+  color: 'random',
+  rated: false,
+};
+
+function timeControlFor(label: string): TimeControl {
+  return (
+    TIME_CONTROLS.find((option) => option.label === label) ??
+    (TIME_CONTROLS.find((option) => option.label === DEFAULT_PREFS.timeLabel) as TimeControl)
+  );
+}
+
+/**
+ * Preferenze salvate, ripulite.
+ *
+ * Le versioni precedenti di questa pagina salvavano `timeIndex`, che qui non
+ * esiste più: i campi mancanti o non riconosciuti tornano al default invece di
+ * propagarsi come `undefined` dentro la UI.
+ */
+function loadPrefs(): PlayPrefs {
+  const stored = readJson<Partial<PlayPrefs>>(StorageKeys.playPrefs);
+  if (!stored) return DEFAULT_PREFS;
+
+  return {
+    opponent: stored.opponent === 'human' ? 'human' : DEFAULT_PREFS.opponent,
+    timeLabel: timeControlFor(stored.timeLabel ?? '').label,
+    aiLevel:
+      typeof stored.aiLevel === 'number' && stored.aiLevel >= 1 && stored.aiLevel <= 8
+        ? stored.aiLevel
+        : DEFAULT_PREFS.aiLevel,
+    color:
+      stored.color === 'white' || stored.color === 'black'
+        ? stored.color
+        : DEFAULT_PREFS.color,
+    rated: stored.rated === true,
+  };
+}
 
 export function PlayPage() {
   const status = useAuth((state) => state.status);
   const login = useAuth((state) => state.login);
   const navigate = useNavigate();
 
-  const [prefs, setPrefs] = useState<PlayPrefs>(
-    () => readJson<PlayPrefs>(StorageKeys.playPrefs) ?? DEFAULT_PREFS,
-  );
+  const [prefs, setPrefs] = useState<PlayPrefs>(loadPrefs);
+  // La famiglia non è una preferenza da salvare: è già implicita nella cadenza
+  // scelta, e tenerla derivata evita che le due possano divergere.
+  const [family, setFamily] = useState<Family>(() => timeControlFor(prefs.timeLabel).family);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
@@ -77,7 +148,7 @@ export function PlayPage() {
     refetchOnWindowFocus: true,
   });
 
-  const timeControl = TIME_CONTROLS[prefs.timeIndex] ?? TIME_CONTROLS[3];
+  const timeControl = timeControlFor(prefs.timeLabel);
 
   const startAiGame = async () => {
     setAiBusy(true);
@@ -121,6 +192,9 @@ export function PlayPage() {
     return <SearchingScreen seek={seek} timeLabel={timeControl.label} rated={prefs.rated} />;
   }
 
+  const againstAi = prefs.opponent === 'ai';
+  const error = againstAi ? aiError : seek.error;
+
   return (
     <div className="animate-in space-y-6">
       <PageHeader />
@@ -161,62 +235,75 @@ export function PlayPage() {
         </Card>
       )}
 
-      {/* Impostazioni condivise fra le due modalità */}
-      <Card>
-        <CardHeader title="Controllo di tempo" subtitle="Vale per entrambe le modalità" />
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
-          {TIME_CONTROLS.map((option, index) => (
-            <button
-              key={option.label}
-              type="button"
-              onClick={() => updatePrefs({ timeIndex: index })}
-              className={cn(
-                'flex flex-col items-center gap-0.5 rounded-[10px] border px-2 py-2.5 transition-colors',
-                prefs.timeIndex === index
-                  ? 'border-brand-500 bg-brand-500/10 text-brand-400'
-                  : 'border-(--border-subtle) text-(--text-secondary) hover:border-(--border-strong) hover:text-(--text-primary)',
-              )}
-            >
-              <span className="tnum text-[13px] font-semibold">{option.label}</span>
-              <span className="text-[10px] text-muted">{option.speed}</span>
-            </button>
-          ))}
-        </div>
-      </Card>
+      {/* Tutte le scelte restano sulla stessa colonna e sempre visibili: si
+          scorre dall'alto in basso la prima volta, e le volte successive si
+          cambia solo la riga che interessa senza attraversare le altre. */}
+      <Card className="space-y-6">
+        <Section label="Avversario">
+          <div className="grid grid-cols-2 gap-2.5">
+            <OptionTile
+              icon={<Bot className="size-[18px]" />}
+              label="Stockfish"
+              hint="Inizia subito"
+              selected={againstAi}
+              onClick={() => updatePrefs({ opponent: 'ai' })}
+            />
+            <OptionTile
+              icon={<Users className="size-[18px]" />}
+              label="Umano"
+              hint="Cerca nella lobby"
+              selected={!againstAi}
+              onClick={() => updatePrefs({ opponent: 'human' })}
+            />
+          </div>
+        </Section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* ── Contro Stockfish ── */}
-        <Card className="flex flex-col">
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <Bot className="size-4 text-brand-400" />
-                Contro Stockfish
-              </span>
-            }
-            subtitle="Nessuna attesa, inizia subito"
-          />
+        <Section
+          label="Tempo"
+          hint="Minuti iniziali + secondi aggiunti a ogni mossa"
+        >
+          <div className="grid grid-cols-3 gap-2.5">
+            {FAMILIES.map((option) => (
+              <OptionTile
+                key={option.key}
+                icon={<option.icon className="size-[18px]" />}
+                label={option.label}
+                selected={family === option.key}
+                onClick={() => setFamily(option.key)}
+              />
+            ))}
+          </div>
 
-          <div className="flex-1 space-y-5">
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <label htmlFor="ai-level" className="text-[13px] font-medium">
-                  Livello
-                </label>
-                <span className="tnum text-[13px] font-semibold text-brand-400">
-                  {prefs.aiLevel}
-                  <span className="ml-1.5 text-[12px] font-normal text-muted">
-                    {AI_LEVEL_HINTS[prefs.aiLevel]}
-                  </span>
-                </span>
-              </div>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {TIME_CONTROLS.filter((option) => option.family === family).map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => updatePrefs({ timeLabel: option.label })}
+                aria-pressed={prefs.timeLabel === option.label}
+                className={cn(
+                  'tnum rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition-colors',
+                  prefs.timeLabel === option.label
+                    ? 'border-brand-500 bg-brand-500/10 text-brand-400'
+                    : 'border-(--border-subtle) text-(--text-secondary) hover:border-(--border-strong) hover:text-(--text-primary)',
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        {againstAi ? (
+          <>
+            <Section label="Livello" value={AI_LEVEL_HINTS[prefs.aiLevel]}>
               <input
-                id="ai-level"
                 type="range"
                 min={1}
                 max={8}
                 step={1}
                 value={prefs.aiLevel}
+                aria-label="Livello di Stockfish"
                 onChange={(event) => updatePrefs({ aiLevel: Number(event.target.value) })}
                 className="w-full accent-brand-500"
               />
@@ -224,99 +311,77 @@ export function PlayPage() {
                 <span>principiante</span>
                 <span>esperto</span>
               </div>
-            </div>
+            </Section>
 
-            <ColorPicker value={prefs.color} onChange={(color) => updatePrefs({ color })} />
-          </div>
-
-          {aiError && <ErrorState message={aiError} className="mt-4" />}
-
-          <Button
-            className="mt-5"
-            fullWidth
-            loading={aiBusy}
-            icon={<Play className="size-4" />}
-            onClick={() => void startAiGame()}
-          >
-            Gioca contro Stockfish
-          </Button>
-        </Card>
-
-        {/* ── Avversario umano ── */}
-        <Card className="flex flex-col">
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <Users className="size-4 text-brand-400" />
-                Avversario umano
-              </span>
-            }
-            subtitle="Cerca un giocatore nella lobby di Lichess"
-          />
-
-          <div className="flex-1 space-y-5">
-            <fieldset>
-              <legend className="mb-2 text-[13px] font-medium">Tipo di partita</legend>
-              <div className="flex gap-2">
-                {[
-                  { value: false, label: 'Amichevole', hint: 'Non incide sul rating' },
-                  { value: true, label: 'Valutata', hint: 'Modifica il tuo rating' },
-                ].map((option) => (
-                  <button
-                    key={String(option.value)}
-                    type="button"
-                    onClick={() => updatePrefs({ rated: option.value })}
-                    className={cn(
-                      'flex-1 rounded-[10px] border px-3 py-2.5 text-left transition-colors',
-                      prefs.rated === option.value
-                        ? 'border-brand-500 bg-brand-500/10'
-                        : 'border-(--border-subtle) hover:border-(--border-strong)',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'block text-[13px] font-medium',
-                        prefs.rated === option.value
-                          ? 'text-brand-400'
-                          : 'text-(--text-secondary)',
-                      )}
-                    >
-                      {option.label}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-muted">{option.hint}</span>
-                  </button>
+            <Section label="Colore">
+              <div className="grid grid-cols-3 gap-2.5">
+                {COLOR_OPTIONS.map((option) => (
+                  <OptionTile
+                    key={option.value}
+                    icon={<span className="text-[17px] leading-none">{option.glyph}</span>}
+                    label={option.label}
+                    selected={prefs.color === option.value}
+                    onClick={() => updatePrefs({ color: option.value })}
+                  />
                 ))}
               </div>
-            </fieldset>
-
-            <div className="rounded-[10px] bg-(--surface-sunken) px-3.5 py-3">
-              <p className="text-[12px] leading-relaxed text-muted">
-                Nella ricerca di un avversario umano il colore viene assegnato da Lichess, quindi
-                la preferenza qui sopra non si applica.
-              </p>
+            </Section>
+          </>
+        ) : (
+          <Section
+            label="Tipo di partita"
+            hint="Nella lobby il colore lo assegna Lichess"
+          >
+            <div className="grid grid-cols-2 gap-2.5">
+              <OptionTile
+                label="Amichevole"
+                hint="Non incide sul rating"
+                selected={!prefs.rated}
+                onClick={() => updatePrefs({ rated: false })}
+              />
+              <OptionTile
+                label="Valutata"
+                hint="Modifica il tuo rating"
+                selected={prefs.rated}
+                onClick={() => updatePrefs({ rated: true })}
+              />
             </div>
-          </div>
+          </Section>
+        )}
 
-          {seek.error && <ErrorState message={seek.error} className="mt-4" />}
+        {error && <ErrorState message={error} />}
 
+        <div className="border-t border-(--border-subtle) pt-5">
           <Button
-            className="mt-5"
             fullWidth
-            variant="secondary"
-            icon={<Clock3 className="size-4" />}
+            size="lg"
+            loading={againstAi && aiBusy}
+            icon={
+              againstAi ? <Play className="size-4" /> : <Search className="size-4" />
+            }
             onClick={() =>
-              seek.start({
-                rated: prefs.rated,
-                // L'endpoint seek vuole i minuti, non i secondi.
-                timeMinutes: timeControl.limitSeconds / 60,
-                incrementSeconds: timeControl.increment,
-              })
+              againstAi
+                ? void startAiGame()
+                : seek.start({
+                    rated: prefs.rated,
+                    // L'endpoint seek vuole i minuti, non i secondi.
+                    timeMinutes: timeControl.limitSeconds / 60,
+                    incrementSeconds: timeControl.increment,
+                  })
             }
           >
-            Cerca avversario
+            {againstAi ? 'Gioca contro Stockfish' : 'Cerca avversario'}
           </Button>
-        </Card>
-      </div>
+          {/* Riepilogo sotto il pulsante: alla fine della colonna le scelte
+              fatte in alto sono fuori vista, e questa riga evita di risalire
+              per controllarle. */}
+          <p className="tnum mt-2.5 text-center text-[12px] text-muted">
+            {againstAi
+              ? `Livello ${prefs.aiLevel} · ${timeControl.label} · ${COLOR_SUMMARY[prefs.color]}`
+              : `${timeControl.label} · ${prefs.rated ? 'valutata' : 'amichevole'}`}
+          </p>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -334,6 +399,91 @@ function PageHeader() {
   );
 }
 
+/**
+ * Un blocco di scelta della colonna: etichetta a sinistra, valore corrente a
+ * destra. Il valore è ridondante rispetto ai controlli sotto, ma tiene la
+ * scelta leggibile anche di sfuggita, scorrendo la pagina.
+ */
+function Section({
+  label,
+  value,
+  hint,
+  children,
+}: {
+  label: string;
+  value?: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+        <h2 className="text-[11px] font-medium tracking-wide text-muted uppercase">{label}</h2>
+        {value && <span className="text-[12px] font-medium text-brand-400">{value}</span>}
+        {hint && !value && <span className="truncate text-[11px] text-muted">{hint}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Riquadro selezionabile: icona, etichetta e sottotitolo facoltativo.
+ *
+ * È la forma unica di tutte le scelte della pagina — avversario, cadenza,
+ * colore, tipo di partita — perché sono decisioni dello stesso peso e
+ * differenziarle graficamente suggerirebbe una gerarchia che non c'è.
+ */
+function OptionTile({
+  icon,
+  label,
+  hint,
+  selected,
+  onClick,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  hint?: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        'flex items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left transition-colors',
+        selected
+          ? 'border-brand-500 bg-brand-500/10'
+          : 'border-(--border-subtle) hover:border-(--border-strong) hover:bg-(--surface-raised)',
+      )}
+    >
+      {icon && (
+        <span
+          className={cn(
+            'flex size-5 shrink-0 items-center justify-center',
+            selected ? 'text-brand-400' : 'text-(--text-secondary)',
+          )}
+        >
+          {icon}
+        </span>
+      )}
+      <span className="min-w-0">
+        <span
+          className={cn(
+            'block truncate text-[13px] font-medium',
+            selected ? 'text-brand-400' : 'text-(--text-primary)',
+          )}
+        >
+          {label}
+        </span>
+        {hint && <span className="block truncate text-[11px] text-muted">{hint}</span>}
+      </span>
+    </button>
+  );
+}
+
 const AI_LEVEL_HINTS: Record<number, string> = {
   1: 'molto facile',
   2: 'facile',
@@ -345,43 +495,17 @@ const AI_LEVEL_HINTS: Record<number, string> = {
   8: 'massimo',
 };
 
-function ColorPicker({
-  value,
-  onChange,
-}: {
-  value: ColorChoice;
-  onChange: (color: ColorChoice) => void;
-}) {
-  const options: Array<{ value: ColorChoice; label: string; glyph: string }> = [
-    { value: 'white', label: 'Bianco', glyph: '♔' },
-    { value: 'random', label: 'Casuale', glyph: '⚄' },
-    { value: 'black', label: 'Nero', glyph: '♚' },
-  ];
+const COLOR_OPTIONS: ReadonlyArray<{ value: ColorChoice; label: string; glyph: string }> = [
+  { value: 'white', label: 'Bianco', glyph: '♔' },
+  { value: 'random', label: 'Casuale', glyph: '⚄' },
+  { value: 'black', label: 'Nero', glyph: '♚' },
+];
 
-  return (
-    <fieldset>
-      <legend className="mb-2 text-[13px] font-medium">Colore</legend>
-      <div className="flex gap-2">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            className={cn(
-              'flex flex-1 flex-col items-center gap-1 rounded-[10px] border py-2.5 transition-colors',
-              value === option.value
-                ? 'border-brand-500 bg-brand-500/10 text-brand-400'
-                : 'border-(--border-subtle) text-(--text-secondary) hover:border-(--border-strong)',
-            )}
-          >
-            <span className="text-xl leading-none">{option.glyph}</span>
-            <span className="text-[11.5px] font-medium">{option.label}</span>
-          </button>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
+const COLOR_SUMMARY: Record<ColorChoice, string> = {
+  white: 'con il bianco',
+  black: 'con il nero',
+  random: 'colore casuale',
+};
 
 function SearchingScreen({
   seek,
@@ -401,7 +525,7 @@ function SearchingScreen({
           className="absolute inset-2 animate-ping rounded-full bg-brand-500/25"
           style={{ animationDelay: '0.4s' }}
         />
-        <Users className="relative size-8 text-brand-400" />
+        <KnightIcon className="relative size-8 text-brand-400" />
       </div>
 
       <div>
